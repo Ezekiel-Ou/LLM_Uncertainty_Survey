@@ -1,0 +1,3 @@
+# Isolate from the legacy environment. Audited source, not an unpinned latest install.
+lm-polygraph @ git+https://github.com/IINemo/lm-polygraph.git@1b24f22d0cd426d3f89e7c98dc4b95115b6f3586
+math-verify

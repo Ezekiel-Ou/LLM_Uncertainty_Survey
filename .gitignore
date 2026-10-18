@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+outputs/
+
+# Keep JSONL experiment data local; publish CSV metrics only.
+*.jsonl
+*.jsonl.gz
+.DS_Store

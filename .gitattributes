@@ -1,0 +1,2 @@
+scaling_law/detail/uq_detail__answer_only.csv filter=lfs diff=lfs merge=lfs -text
+scaling_law/detail/uq_detail__reasoning_augmented.csv filter=lfs diff=lfs merge=lfs -text

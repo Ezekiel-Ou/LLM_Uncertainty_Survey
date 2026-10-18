@@ -1,0 +1,521 @@
+#!/usr/bin/env python3
+# Original paper/author repository: https://github.com/potsawee/selfcheckgpt
+
+if __name__ == "__main__" and not globals().get("_UQ_EXECUTING", False):
+    
+    import ast as _uq_ast
+    from pathlib import Path as _uq_Path
+    _uq_tree = _uq_ast.parse(_uq_Path(__file__).read_text())
+    _uq_helper = next(n for n in _uq_tree.body if isinstance(n, _uq_ast.FunctionDef) and n.name == "_uq_standalone")
+    exec(compile(_uq_ast.Module(body=[_uq_helper], type_ignores=[]), __file__, "exec"), globals())
+    _uq_standalone()
+    raise SystemExit(0)
+
+
+
+import json
+import os
+os.environ.setdefault("HF_ENDPOINT", "https://huggingface.co")
+import threading
+from typing import Any, Dict, List, Tuple, Optional
+
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+from math_verify import parse, verify
+
+
+
+
+
+INPUT_FILE = __import__("os").environ.get("UQ_INPUT_FILE", "")
+OUTPUT_FILE = __import__("os").environ.get("UQ_OUTPUT_FILE", "")
+
+NLI_MODEL_NAME = "microsoft/deberta-large-mnli"
+
+
+MAX_STAGE1_SAMPLES = 10
+
+
+USE_EXACT_MATCH_MIX = True
+ALPHA = 0.8  
+
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+
+
+
+print("Loading NLI model...", flush=True)
+nli_tokenizer = AutoTokenizer.from_pretrained(NLI_MODEL_NAME)
+nli_model = AutoModelForSequenceClassification.from_pretrained(
+    NLI_MODEL_NAME,
+    torch_dtype=torch.float32,
+    use_safetensors=False,
+)
+nli_model.to(DEVICE)
+nli_model.eval()
+
+id2label = {int(k): v.lower() for k, v in nli_model.config.id2label.items()}
+ENTAIL_IDX = None
+CONTRA_IDX = None
+for idx, label in id2label.items():
+    if "entail" in label:
+        ENTAIL_IDX = idx
+    if "contradiction" in label:
+        CONTRA_IDX = idx
+
+if ENTAIL_IDX is None or CONTRA_IDX is None:
+    raise ValueError(f"Cannot find entailment/contradiction labels in {id2label}")
+
+write_lock = threading.Lock()
+print_lock = threading.Lock()
+
+
+
+
+
+def safe_print(*args, **kwargs):
+    with print_lock:
+        print(*args, **kwargs, flush=True)
+
+
+def append_jsonl(path: str, obj: Dict[str, Any]) -> None:
+    with write_lock:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+            f.flush()
+
+
+def load_done_ids(path: str) -> set:
+    done = set()
+    if not os.path.exists(path):
+        return done
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            try:
+                obj = json.loads(line)
+                if "id" in obj:
+                    done.add(obj["id"])
+            except Exception:
+                continue
+    return done
+
+
+def safe_float(x: Any) -> Optional[float]:
+    if x is None:
+        return None
+    try:
+        return float(x)
+    except Exception:
+        return None
+
+
+def exact_match_norm(a: str, b: str) -> float:
+    return float(str(a).strip() == str(b).strip())
+
+
+
+
+
+def mathv_correct(ref_text: str, target_text: str) -> bool:
+    try:
+        ref = parse(ref_text)
+        target = parse(target_text)
+        return bool(verify(ref, target))
+    except Exception:
+        return False
+
+
+
+
+
+def get_question_id(obj: Dict[str, Any]) -> str:
+    for key in ["id", "question_id", "qid"]:
+        if key in obj and obj[key] is not None:
+            return str(obj[key])
+    return ""
+
+
+def get_question(obj: Dict[str, Any]) -> str:
+    return str(obj.get("question", "")).strip()
+
+
+def get_gt_text(obj: Dict[str, Any]) -> str:
+    gt = obj.get("gt", obj.get("ground_truth", obj.get("answer", "")))
+
+    if isinstance(gt, dict):
+        if gt.get("value") is not None:
+            return str(gt["value"]).strip()
+        aliases = gt.get("aliases", [])
+        if isinstance(aliases, list) and len(aliases) > 0:
+            return str(aliases[0]).strip()
+        return ""
+    return str(gt).strip()
+
+
+def extract_text_field(x: Any) -> str:
+    if x is None:
+        return ""
+    if isinstance(x, str):
+        return x.strip()
+    if isinstance(x, dict):
+        for key in ["text", "raw_text", "answer", "response"]:
+            if key in x and x[key] is not None:
+                return str(x[key]).strip()
+    return str(x).strip()
+
+
+def get_greedy_answer(obj: Dict[str, Any]) -> str:
+    if "greedy_answer" in obj and obj["greedy_answer"] is not None:
+        return str(obj["greedy_answer"]).strip()
+
+    if "greedy" in obj:
+        text = extract_text_field(obj["greedy"])
+        if text:
+            return text
+
+    return ""
+
+
+def get_sampled_answers(obj: Dict[str, Any]) -> List[str]:
+    outs = []
+
+    if "sampled_answers" in obj and isinstance(obj["sampled_answers"], list):
+        for s in obj["sampled_answers"]:
+            t = extract_text_field(s)
+            if t:
+                outs.append(t)
+        return outs
+
+    if "samples" in obj and isinstance(obj["samples"], list):
+        for s in obj["samples"]:
+            t = extract_text_field(s)
+            if t:
+                outs.append(t)
+        return outs
+
+    return outs
+
+
+def get_verbalized_confidence(obj: Dict[str, Any]) -> Optional[float]:
+    verbalized = obj.get("verbalized")
+    if isinstance(verbalized, dict):
+        conf = verbalized.get("confidence", None)
+        return safe_float(conf)
+    return None
+
+
+
+
+
+def nli_probs_batch(pairs: List[Tuple[str, str]], batch_size: int = 32):
+    entail_probs = []
+    contra_probs = []
+
+    for i in range(0, len(pairs), batch_size):
+        batch = pairs[i:i + batch_size]
+        premises = [x[0] for x in batch]
+        hypotheses = [x[1] for x in batch]
+
+        inputs = nli_tokenizer(
+            premises,
+            hypotheses,
+            return_tensors="pt",
+            truncation=True,
+            max_length=512,
+            padding=True,
+        )
+        inputs = {k: v.to(nli_model.device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            logits = nli_model(**inputs).logits.float()
+            probs = F.softmax(logits, dim=-1)
+
+        entail_probs.extend(probs[:, ENTAIL_IDX].detach().cpu().tolist())
+        contra_probs.extend(probs[:, CONTRA_IDX].detach().cpu().tolist())
+
+    return [float(x) for x in entail_probs], [float(x) for x in contra_probs]
+
+
+
+
+
+def compute_selfcheck_score(greedy_answer: str, sampled_answers: List[str]) -> Tuple[float, List[Dict[str, Any]]]:
+    if not greedy_answer.strip():
+        return 0.5, []
+
+    used_samples = [x for x in sampled_answers if str(x).strip()][:MAX_STAGE1_SAMPLES]
+    if not used_samples:
+        return 0.5, []
+
+    
+    forward_pairs = [(s, greedy_answer) for s in used_samples]
+    backward_pairs = [(greedy_answer, s) for s in used_samples]
+
+    p_ent_f, p_con_f = nli_probs_batch(forward_pairs)
+    p_ent_b, p_con_b = nli_probs_batch(backward_pairs)
+
+    details = []
+    vals = []
+
+    greedy_norm = str(greedy_answer).strip()
+
+    for s, ef, cf, eb, cb in zip(used_samples, p_ent_f, p_con_f, p_ent_b, p_con_b):
+        sample_norm = str(s).strip()
+
+        
+        support_forward = 0.5 * (ef + (1.0 - cf))
+        support_backward = 0.5 * (eb + (1.0 - cb))
+        nli_support = 0.5 * (support_forward + support_backward)
+
+        exact_match = exact_match_norm(sample_norm, greedy_norm)
+
+        if USE_EXACT_MATCH_MIX:
+            support = ALPHA * nli_support + (1.0 - ALPHA) * exact_match
+        else:
+            support = nli_support
+
+        details.append(
+            {
+                "sample_answer": s,
+                "entail_forward": ef,
+                "contradiction_forward": cf,
+                "entail_backward": eb,
+                "contradiction_backward": cb,
+                "nli_support": nli_support,
+                "exact_match": exact_match,
+                "single_support": support,
+            }
+        )
+        vals.append(support)
+
+    confidence = float(sum(vals) / len(vals))
+    confidence = max(0.0, min(1.0, confidence))
+    return confidence, details
+
+
+
+
+
+def compute_selfcheck_for_item(obj: Dict[str, Any]) -> Dict[str, Any]:
+    qid = get_question_id(obj)
+    question = get_question(obj)
+    gt_text = get_gt_text(obj)
+
+    greedy_answer = get_greedy_answer(obj)
+    sampled_answers = get_sampled_answers(obj)
+    verbalized_conf = get_verbalized_confidence(obj)
+
+    correct = int(mathv_correct(gt_text, greedy_answer))
+    confidence, details = compute_selfcheck_score(greedy_answer, sampled_answers)
+    uncertainty = float(1.0 - confidence)
+
+    result = {
+        "id": qid,
+        "question": question,
+        "gt": gt_text,
+        "greedy_answer": greedy_answer,
+        "sampled_answers": sampled_answers[:MAX_STAGE1_SAMPLES],
+        "correct": correct,
+        "selfcheck_confidence": confidence,
+        "selfcheck_uncertainty": uncertainty,
+        "selfcheck_details": details,
+        "meta": {
+            "method": "SelfCheckGPT-style",
+            "dataset": "gsm8k",
+            "source_model": "unknown",
+            "answer_matcher": "math_verify",
+            "nli_model": NLI_MODEL_NAME,
+            "num_samples_used": min(len(sampled_answers), MAX_STAGE1_SAMPLES),
+            "use_exact_match_mix": USE_EXACT_MATCH_MIX,
+            "alpha": ALPHA if USE_EXACT_MATCH_MIX else None,
+            "score_definition": "avg sample support to greedy answer",
+        },
+    }
+
+    if verbalized_conf is not None:
+        result["verbalized_confidence_raw"] = verbalized_conf
+        if verbalized_conf > 1.0:
+            result["verbalized_confidence_0_1"] = verbalized_conf / 100.0
+        else:
+            result["verbalized_confidence_0_1"] = verbalized_conf
+
+    return result
+
+
+
+
+
+def main():
+    out_dir = os.path.dirname(OUTPUT_FILE)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    done = load_done_ids(OUTPUT_FILE)
+    safe_print(f"existing records: {len(done)}")
+
+    with open(INPUT_FILE, "r", encoding="utf-8") as fin:
+        for line_idx, line in enumerate(fin, start=1):
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                obj = json.loads(line)
+            except Exception:
+                safe_print(f"skip invalid json line: {line_idx}")
+                continue
+
+            qid = get_question_id(obj)
+
+            if qid in done:
+                continue
+
+            try:
+                result = compute_selfcheck_for_item(obj)
+                append_jsonl(OUTPUT_FILE, result)
+                safe_print(
+                    f"done: {qid} | line={line_idx} | "
+                    f"correct={result['correct']} | "
+                    f"conf={result['selfcheck_confidence']:.4f} | "
+                    f"unc={result['selfcheck_uncertainty']:.4f}"
+                )
+            except Exception as e:
+                err = {
+                    "id": qid,
+                    "question": obj.get("question", ""),
+                    "error": str(e),
+                }
+                append_jsonl(OUTPUT_FILE, err)
+                safe_print(f"error: {qid} | line={line_idx} | {e}")
+
+
+if __name__ == "__main__":
+    main()
+
+def _uq_standalone():
+    
+    import argparse as _ap
+    import ast as _ast
+    import json as _json
+    import os as _os
+    from pathlib import Path as _Path
+    import sys as _sys
+    import tempfile as _tempfile
+    import types as _types
+
+    _parser = _ap.ArgumentParser(description="selfcheckgpt / deepseek / gsm8k / answer_only (standalone)")
+    _parser.add_argument("--input-file", required=True)
+    _parser.add_argument("--output-file", required=True)
+    _parser.add_argument("--model-path")
+    _parser.add_argument("--correct-file")
+    _parser.add_argument("--problem-file")
+    _parser.add_argument("--nli-model")
+    _parser.add_argument("--device", choices=["cpu", "cuda"])
+    _parser.add_argument("--overwrite", action="store_true")
+    _parser.add_argument("--dry-run", action="store_true")
+    _argsv = _sys.argv[1:]
+    _cut = _argsv.index("--") if "--" in _argsv else len(_argsv)
+    _args = _parser.parse_args(_argsv[:_cut])
+    _extra = _argsv[_cut + 1:]
+    _source = _Path(__file__).resolve()
+    _input = _Path(_args.input_file).resolve()
+    _output = _Path(_args.output_file).resolve()
+    if not _input.is_file():
+        _parser.error("input file does not exist")
+    if _input == _output:
+        _parser.error("output must differ from input")
+    if _output.exists() and not _args.overwrite:
+        _parser.error("output exists; use --overwrite")
+    for _name in ["correct_file", "problem_file", "model_path", "nli_model"]:
+        _value = getattr(_args, _name)
+        if _value and _Path(_value).exists():
+            setattr(_args, _name, str(_Path(_value).resolve()))
+    if _args.correct_file and _output == _Path(_args.correct_file).resolve():
+        _parser.error("output must differ from correctness input")
+    if _args.problem_file and _output == _Path(_args.problem_file).resolve():
+        _parser.error("output must differ from problem input")
+    _tree = _ast.parse(_source.read_text(), filename=str(_source))
+    _tree.body = [n for n in _tree.body
+                  if not (isinstance(n, _ast.FunctionDef) and n.name == "_uq_standalone")
+                  and not (isinstance(n, _ast.If) and "_UQ_EXECUTING" in _ast.unparse(n.test))]
+    _options = {}
+    for _node in _ast.walk(_tree):
+        if isinstance(_node, _ast.Call) and isinstance(_node.func, _ast.Attribute) and _node.func.attr == "add_argument":
+            for _opt in _node.args:
+                if isinstance(_opt, _ast.Constant) and isinstance(_opt.value, str) and _opt.value.startswith("--"):
+                    _options[_opt.value] = _node
+    _argv = [str(_source)]
+    def _add(_names, _value):
+        if _value is not None:
+            _opt = next((x for x in _names if x in _options), None)
+            if _opt:
+                _argv.extend([_opt, str(_value)])
+    _add(["--input-file", "--input_file"], str(_input))
+    if "selfcheckgpt" not in {"max_seq_prob", "mean_tok_ent", "max_tok_prob", "ppl"}:
+        _add(["--model-path", "--model_name_or_path", "--judge-model-path"], _args.model_path)
+    _add(["--api-model"], _args.model_path)
+    _add(["--model-family", "--judge-family"], "deepseek")
+    _add(["--correct-file", "--correct_file"], _args.correct_file)
+    _add(["--problem-file"], _args.problem_file)
+    _add(["--nli-model", "--nli-model-path"], _args.nli_model)
+    _add(["--device"], _args.device)
+    _protected = {"--input-file", "--input_file", "--output-file", "--output_file", "--model-path",
+                  "--model_name_or_path", "--judge-model-path", "--model-family", "--judge-family", "--api-model"}
+    if any(x.split("=")[0] in _protected for x in _extra):
+        _parser.error("use the main CLI options for input/output/model/family")
+    _argv.extend(_extra)
+    
+    _provided = {x.split("=")[0] for x in _argv if x.startswith("--")}
+    _provided.update({"--output-file", "--output_file"})
+    for _opt, _node in _options.items():
+        _required = any(k.arg == "required" and isinstance(k.value, _ast.Constant) and k.value.value for k in _node.keywords)
+        _aliases = [x.value for x in _node.args if isinstance(x, _ast.Constant)]
+        if _required and not _provided.intersection(_aliases):
+            _parser.error("missing backend argument: " + _opt)
+    if "selfcheckgpt" in {"bsdetector", "mars", "p_true", "verbalized_probability", "cot_uq_me", "cot_uq_mi", "cot_uq_sar", "cot_uq_sp", "topo_uq"} and not _args.model_path:
+        _parser.error("this method requires --model-path")
+    if _args.dry_run:
+        print(_json.dumps({"script": str(_source), "method": "selfcheckgpt", "family": "deepseek",
+                           "dataset": "gsm8k", "setting": "answer_only", "model_loading": False}, indent=2))
+        return
+    _output.parent.mkdir(parents=True, exist_ok=True)
+    with _tempfile.TemporaryDirectory(prefix="uq-", dir=_output.parent) as _tmp:
+        _raw = _Path(_tmp) / "result.jsonl"
+        _add(["--output-file", "--output_file"], str(_raw))
+        _overrides = {"INPUT_FILE": str(_input), "OUTPUT_FILE": str(_raw),
+                      "MODEL_NAME": _args.model_path, "JUDGE_MODEL_NAME": _args.model_path,
+                      "API_MODEL": _args.model_path, "MODEL_deepseek": "deepseek"}
+        if _args.nli_model:
+            _overrides.update(NLI_MODEL_NAME=_args.nli_model, NLI_MODEL=_args.nli_model)
+        if _args.device:
+            _overrides["DEVICE"] = _args.device
+        for _node in _tree.body:
+            if isinstance(_node, (_ast.Assign, _ast.AnnAssign)):
+                _targets = _node.targets if isinstance(_node, _ast.Assign) else [_node.target]
+                for _target in _targets:
+                    if isinstance(_target, _ast.Name) and _overrides.get(_target.id) is not None:
+                        _node.value = _ast.Constant(_overrides[_target.id])
+        _ast.fix_missing_locations(_tree)
+        _os.environ.update(UQ_deepseek="deepseek", UQ_MODEL_PATH=_args.model_path or "",
+                           UQ_INPUT_FILE=str(_input), UQ_OUTPUT_FILE=str(_raw))
+        _module = _types.ModuleType("__main__")
+        _module.__file__ = str(_source)
+        _sys.modules["__main__"] = _module
+        _sys.argv = _argv
+        exec(compile(_tree, str(_source), "exec"), _module.__dict__)
+        _count = 0
+        with _raw.open() as _stream:
+            for _line in _stream:
+                if _line.strip():
+                    _row = _json.loads(_line)
+                    if _row.get("error"):
+                        raise RuntimeError(str(_row["error"]))
+                    _count += 1
+        if not _count:
+            raise RuntimeError("backend produced no records")
+        _os.replace(_raw, _output)
+        print(f"Wrote {_count} records to {_output}")
+

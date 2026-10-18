@@ -1,0 +1,17 @@
+# GPU execution: choose a torch build matching your CUDA installation.
+torch
+transformers>=4.51
+accelerate
+numpy
+scipy
+math-verify
+tqdm
+openai
+sentence-transformers
+sentencepiece
+protobuf
+scikit-learn
+
+# Author SelfCheck-NLI used by the normal selfcheckgpt methods.
+selfcheckgpt @ git+https://github.com/potsawee/selfcheckgpt.git@19b492a2a380931bf1ed0ca94a9565c9aa7b03e1
+spacy
