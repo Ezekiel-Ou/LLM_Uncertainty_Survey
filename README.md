@@ -292,6 +292,68 @@ The script computes grouped statistics. Interpret scaling trends using each meth
 - Methods differ in their requirements for token probabilities, full distributions, reasoning traces, or multiple responses. API outputs may not satisfy white-box method requirements.
 - Multiple implementations and historical approximations are retained. Check `registry.json`, the actual route, and method scripts for supported combinations and implementation provenance.
 
+## Method Introduction PDFs
+
+Survey materials are stored in [`UQ-methods-Introduction/`](UQ-methods-Introduction/):
+
+- **Complete version:** [LLM-UQ-Survey.pdf](UQ-methods-Introduction/LLM-UQ-Survey.pdf), containing all 109 slides.
+- **Individual methods:** [`methods/`](UQ-methods-Introduction/methods/) contains 33 PDFs, one per method and three pages each, preserving the original figures, formulas, and references.
+
+The tables below cover all 33 methods, with a short description, local introduction PDF, and original paper. Categories follow the presentation's organization; some methods span categories, and multiple measures may originate from the same paper. The survey covers more methods than the codebase implements.
+
+### Bayesian Methods
+
+| Method | Core idea | Introduction | Original paper |
+| --- | --- | --- | --- |
+| Laplace-LoRA | Applies a Laplace posterior approximation to LoRA parameters to estimate parameter uncertainty and improve calibration. | [PDF](UQ-methods-Introduction/methods/Laplace-LoRA.pdf) | [Bayesian Low-rank Adaptation for Large Language Models](https://arxiv.org/abs/2308.13111) |
+
+### Ensemble Methods
+
+| Method | Core idea | Introduction | Original paper |
+| --- | --- | --- | --- |
+| BayesPE | Learns weights over semantically equivalent prompts and combines their predictions. | [PDF](UQ-methods-Introduction/methods/BayesPE.pdf) | [Bayesian Prompt Ensembles: Model Uncertainty Estimation for Black-Box Large Language Models](https://aclanthology.org/2024.findings-acl.728/) |
+| Deep Ensembles | Combines predictions from independently trained models to estimate uncertainty. | [PDF](UQ-methods-Introduction/methods/Deep-Ensembles.pdf) | [Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles](https://arxiv.org/abs/1612.01474) |
+| LoRA Ensembles | Shares a backbone across independently trained LoRA adapters for efficient ensembling. | [PDF](UQ-methods-Introduction/methods/LoRA-Ensembles.pdf) | [LoRA ensembles for large language model fine-tuning](https://arxiv.org/abs/2310.00035) |
+
+### Consensus-Based Methods
+
+| Method | Core idea | Introduction | Original paper |
+| --- | --- | --- | --- |
+| SPUQ | Aggregates responses sampled under input perturbations to estimate uncertainty. | [PDF](UQ-methods-Introduction/methods/SPUQ.pdf) | [SPUQ: Perturbation-Based Uncertainty Quantification for Large Language Models](https://arxiv.org/abs/2403.02509) |
+| ConU | Combines semantic frequency and consistency with conformal prediction. | [PDF](UQ-methods-Introduction/methods/ConU.pdf) | [ConU: Conformal Uncertainty in Large Language Models with Correctness Coverage Guarantees](https://aclanthology.org/2024.findings-emnlp.404/) |
+| SelfCheckGPT | Checks consistency between a target response and sampled responses to detect potential hallucinations. | [PDF](UQ-methods-Introduction/methods/SelfCheckGPT.pdf) | [SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models](https://aclanthology.org/2023.emnlp-main.557/) |
+| NumSet | Counts semantic equivalence classes among sampled responses. | [PDF](UQ-methods-Introduction/methods/NumSet.pdf) | [Generating with Confidence: Uncertainty Quantification for Black-box Large Language Models](https://arxiv.org/abs/2305.19187) |
+| EigV | Uses graph Laplacian eigenvalues from a response similarity graph. | [PDF](UQ-methods-Introduction/methods/EigV.pdf) | [Generating with Confidence: Uncertainty Quantification for Black-box Large Language Models](https://arxiv.org/abs/2305.19187) |
+| Deg | Measures agreement through node degrees in a response similarity graph. | [PDF](UQ-methods-Introduction/methods/Deg.pdf) | [Generating with Confidence: Uncertainty Quantification for Black-box Large Language Models](https://arxiv.org/abs/2305.19187) |
+| Ecc | Measures distances from a centroid in a spectral embedding of the similarity graph. | [PDF](UQ-methods-Introduction/methods/Ecc.pdf) | [Generating with Confidence: Uncertainty Quantification for Black-box Large Language Models](https://arxiv.org/abs/2305.19187) |
+| BSDetector | Combines sampled-response consistency with model self-reflection to estimate confidence. | [PDF](UQ-methods-Introduction/methods/BSDetector.pdf) | [Quantifying Uncertainty in Answers from any Language Model and Enhancing their Trustworthiness](https://aclanthology.org/2024.acl-long.283/) |
+| D-UE | Uses claim-level response augmentation and directed entailment graphs. | [PDF](UQ-methods-Introduction/methods/D-UE.pdf) | [LLM Uncertainty Quantification through Directional Entailment Graph and Claim Level Response Augmentation](https://arxiv.org/abs/2407.00994) |
+| CSS | Uses contrastive semantic similarity features to measure response dispersion. | [PDF](UQ-methods-Introduction/methods/CSS.pdf) | [CSS: Contrastive Semantic Similarity for Uncertainty Quantification of LLMs](https://arxiv.org/abs/2406.03158) |
+| LofreeCP | Constructs conformal prediction sets without logits using frequency, semantic entropy, and similarity. | [PDF](UQ-methods-Introduction/methods/LofreeCP.pdf) | [API Is Enough: Conformal Prediction for Large Language Models Without Logit-Access](https://aclanthology.org/2024.findings-emnlp.54/) |
+| EigenScore | Measures semantic dispersion using hidden-state covariance across sampled generations. | [PDF](UQ-methods-Introduction/methods/EigenScore.pdf) | [INSIDE: LLMs’ Internal States Retain the Power of Hallucination Detection](https://arxiv.org/abs/2402.03744) |
+| Semantic Entropy | Clusters sampled responses by meaning and computes entropy over semantic clusters. | [PDF](UQ-methods-Introduction/methods/Semantic-Entropy.pdf) | [Detecting hallucinations in large language models using semantic entropy](https://www.nature.com/articles/s41586-024-07421-0) |
+| Semantic Density | Estimates response confidence through probability density in semantic space. | [PDF](UQ-methods-Introduction/methods/Semantic-Density.pdf) | [Semantic Density: Uncertainty Quantification for Large Language Models through Confidence Measurement in Semantic Space](https://arxiv.org/abs/2405.13845) |
+| SAR | Reweights token- and sentence-level uncertainty according to semantic relevance. | [PDF](UQ-methods-Introduction/methods/SAR.pdf) | [Shifting Attention to Relevance: Towards the Predictive Uncertainty Quantification of Free-Form Large Language Models](https://aclanthology.org/2024.acl-long.276/) |
+| Topo-UQ | Compares graph-structured explanations through semantic and topological differences. | [PDF](UQ-methods-Introduction/methods/Topo-UQ.pdf) | [Understanding the Uncertainty of LLM Explanations: A Perspective Based on Reasoning Topology](https://arxiv.org/abs/2502.17026) |
+| CoT Entropy | Marginalizes sampled reasoning traces to estimate entropy over step-wise verification decisions. | [PDF](UQ-methods-Introduction/methods/CoT-Entropy.pdf) | [Uncertainty-Aware Step-wise Verification with Generative Reward Models](https://arxiv.org/abs/2502.11250) |
+
+### Single-Pass Methods
+
+| Method | Core idea | Introduction | Original paper |
+| --- | --- | --- | --- |
+| CP-MCQA | Builds calibrated prediction sets for multiple-choice QA and uses set size as an uncertainty signal. | [PDF](UQ-methods-Introduction/methods/CP-MCQA.pdf) | [Conformal Prediction with Large Language Models for Multi-Choice Question Answering](https://arxiv.org/abs/2305.18404) |
+| MARS | Weights token probabilities by semantic contribution instead of simple length normalization. | [PDF](UQ-methods-Introduction/methods/MARS.pdf) | [MARS: Meaning-Aware Response Scoring for Uncertainty Estimation in Generative LLMs](https://arxiv.org/abs/2402.11756) |
+| CCP | Uses claim-conditioned probabilities to isolate uncertainty about claim values from wording and claim selection. | [PDF](UQ-methods-Introduction/methods/CCP.pdf) | [Fact-Checking the Output of Large Language Models via Token-Level Uncertainty Quantification](https://aclanthology.org/2024.findings-acl.558/) |
+| SEPs | Trains lightweight hidden-state probes to approximate semantic entropy from one generation. | [PDF](UQ-methods-Introduction/methods/SEPs.pdf) | [Semantic Entropy Probes: Robust and Cheap Hallucination Detection in LLMs](https://arxiv.org/abs/2406.15927) |
+| BLL | Fits Bayesian linear models to activation changes and aggregates posterior features to estimate reliability. | [PDF](UQ-methods-Introduction/methods/BLL.pdf) | [Can Linear Probes Measure LLM Uncertainty?](https://arxiv.org/abs/2510.04108) |
+| LACIE | Uses speaker–listener preference data to finetune confidence expression. | [PDF](UQ-methods-Introduction/methods/LACIE.pdf) | [LACIE: Listener-Aware Finetuning for Confidence Calibration in Large Language Models](https://arxiv.org/abs/2405.21028) |
+| SaySelf | Uses supervised finetuning and reinforcement learning to produce answers, self-reflective rationales, and confidence. | [PDF](UQ-methods-Introduction/methods/SaySelf.pdf) | [SaySelf: Teaching LLMs to Express Confidence with Self-Reflective Rationales](https://arxiv.org/abs/2405.20974) |
+| Linguistic Calibration | Trains confidence statements in long-form text to support calibrated downstream user predictions. | [PDF](UQ-methods-Introduction/methods/Linguistic-Calibration.pdf) | [Linguistic Calibration of Long-Form Generations](https://arxiv.org/abs/2404.00474) |
+| CoT-UQ | Extracts important reasoning keywords and incorporates them into response-level UQ. | [PDF](UQ-methods-Introduction/methods/CoT-UQ.pdf) | [CoT-UQ: Improving Response-wise Uncertainty Quantification in LLMs with Chain-of-Thought](https://arxiv.org/abs/2502.17214) |
+| Verbalized Probability | Trains models to express answer confidence directly in words or numbers. | [PDF](UQ-methods-Introduction/methods/Verbalized-Probability.pdf) | [Teaching Models to Express Their Uncertainty in Words](https://arxiv.org/abs/2205.14334) |
+| P(IK) | Predicts whether the model knows the correct answer before generating it. | [PDF](UQ-methods-Introduction/methods/P-IK.pdf) | [Language Models (Mostly) Know What They Know](https://arxiv.org/abs/2207.05221) |
+| P(True) | Estimates whether a given response is correct through true/false self-evaluation. | [PDF](UQ-methods-Introduction/methods/P-True.pdf) | [Language Models (Mostly) Know What They Know](https://arxiv.org/abs/2207.05221) |
+
 ## Citation
 
 If this repository is useful for your research, please cite the accompanying paper:

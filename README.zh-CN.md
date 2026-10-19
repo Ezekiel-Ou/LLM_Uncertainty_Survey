@@ -292,6 +292,68 @@ python -m scaling_law.summarize_scaling_law \
 - 不同方法对词元概率、完整分布、推理过程或多次回答的要求不同；API 输出不一定满足白盒方法的输入要求。
 - 仓库同时保留多种实现与近似版本，具体支持范围和实现来源请结合 `registry.json`、实际路由与方法脚本核对。
 
+## 方法介绍 PDF
+
+方法介绍资料存放在 [`UQ-methods-Introduction/`](UQ-methods-Introduction/) 目录：
+
+- **汇总版本**：[LLM-UQ-Survey.pdf](UQ-methods-Introduction/LLM-UQ-Survey.pdf)，共 109 页，包含完整 PPT 内容。
+- **分方法版本**：[`methods/`](UQ-methods-Introduction/methods/) 子目录中有 33 份 PDF，每种方法一份、每份 3 页，保留原有图示、公式和参考文献。
+
+下表覆盖目录中的全部 33 种方法，提供核心思路、介绍 PDF 和对应原论文。类别沿用 PPT 的组织方式；部分方法横跨多个类别，同一篇论文也可能提出多个指标。介绍范围大于本仓库的代码实现范围。
+
+### 贝叶斯方法
+
+| 方法 | 核心思路 | 介绍 | 原论文 |
+| --- | --- | --- | --- |
+| Laplace-LoRA | 对 LoRA 参数后验进行 Laplace 近似，刻画参数不确定性并改善校准。 | [PDF](UQ-methods-Introduction/methods/Laplace-LoRA.pdf) | [Bayesian Low-rank Adaptation for Large Language Models](https://arxiv.org/abs/2308.13111) |
+
+### 集成方法
+
+| 方法 | 核心思路 | 介绍 | 原论文 |
+| --- | --- | --- | --- |
+| BayesPE | 对语义等价的提示进行加权集成，在验证集上学习提示权重。 | [PDF](UQ-methods-Introduction/methods/BayesPE.pdf) | [Bayesian Prompt Ensembles: Model Uncertainty Estimation for Black-Box Large Language Models](https://aclanthology.org/2024.findings-acl.728/) |
+| Deep Ensembles | 独立训练多个模型，通过预测集成估计不确定性。 | [PDF](UQ-methods-Introduction/methods/Deep-Ensembles.pdf) | [Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles](https://arxiv.org/abs/1612.01474) |
+| LoRA Ensembles | 共享模型主干，训练多个独立 LoRA 适配器以降低集成成本。 | [PDF](UQ-methods-Introduction/methods/LoRA-Ensembles.pdf) | [LoRA ensembles for large language model fine-tuning](https://arxiv.org/abs/2310.00035) |
+
+### 共识方法
+
+| 方法 | 核心思路 | 介绍 | 原论文 |
+| --- | --- | --- | --- |
+| SPUQ | 结合输入扰动与多次回答采样，聚合输出差异作为不确定性信号。 | [PDF](UQ-methods-Introduction/methods/SPUQ.pdf) | [SPUQ: Perturbation-Based Uncertainty Quantification for Large Language Models](https://arxiv.org/abs/2403.02509) |
+| ConU | 结合语义频率与一致性，并将不确定性分数用于共形预测。 | [PDF](UQ-methods-Introduction/methods/ConU.pdf) | [ConU: Conformal Uncertainty in Large Language Models with Correctness Coverage Guarantees](https://aclanthology.org/2024.findings-emnlp.404/) |
+| SelfCheckGPT | 比较目标回答与多次采样回答的一致性，识别潜在幻觉。 | [PDF](UQ-methods-Introduction/methods/SelfCheckGPT.pdf) | [SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models](https://aclanthology.org/2023.emnlp-main.557/) |
+| NumSet | 将采样回答按语义等价关系分组，以语义集合数量衡量不确定性。 | [PDF](UQ-methods-Introduction/methods/NumSet.pdf) | [Generating with Confidence: Uncertainty Quantification for Black-box Large Language Models](https://arxiv.org/abs/2305.19187) |
+| EigV | 建立回答相似度图，利用图拉普拉斯特征值提取不确定性信号。 | [PDF](UQ-methods-Introduction/methods/EigV.pdf) | [Generating with Confidence: Uncertainty Quantification for Black-box Large Language Models](https://arxiv.org/abs/2305.19187) |
+| Deg | 利用回答相似度图中的节点度衡量回答与其他采样的共识程度。 | [PDF](UQ-methods-Introduction/methods/Deg.pdf) | [Generating with Confidence: Uncertainty Quantification for Black-box Large Language Models](https://arxiv.org/abs/2305.19187) |
+| Ecc | 将相似度图嵌入低维空间，通过样本到中心的距离衡量离散程度。 | [PDF](UQ-methods-Introduction/methods/Ecc.pdf) | [Generating with Confidence: Uncertainty Quantification for Black-box Large Language Models](https://arxiv.org/abs/2305.19187) |
+| BSDetector | 结合多次回答的语义一致性与模型自我反思，估计回答置信度。 | [PDF](UQ-methods-Introduction/methods/BSDetector.pdf) | [Quantifying Uncertainty in Answers from any Language Model and Enhancing their Trustworthiness](https://aclanthology.org/2024.acl-long.283/) |
+| D-UE | 通过声明级回答扩展和有向蕴含图保留方向性语义关系。 | [PDF](UQ-methods-Introduction/methods/D-UE.pdf) | [LLM Uncertainty Quantification through Directional Entailment Graph and Claim Level Response Augmentation](https://arxiv.org/abs/2407.00994) |
+| CSS | 利用对比语义特征构建回答间的相似度，分析生成结果的离散性。 | [PDF](UQ-methods-Introduction/methods/CSS.pdf) | [CSS: Contrastive Semantic Similarity for Uncertainty Quantification of LLMs](https://arxiv.org/abs/2406.03158) |
+| LofreeCP | 利用频率、语义熵与语义相似度，在无 logits 条件下构造共形预测集合。 | [PDF](UQ-methods-Introduction/methods/LofreeCP.pdf) | [API Is Enough: Conformal Prediction for Large Language Models Without Logit-Access](https://aclanthology.org/2024.findings-emnlp.54/) |
+| EigenScore | 利用多次生成的隐藏状态及其协方差谱刻画内部语义分散程度。 | [PDF](UQ-methods-Introduction/methods/EigenScore.pdf) | [INSIDE: LLMs’ Internal States Retain the Power of Hallucination Detection](https://arxiv.org/abs/2402.03744) |
+| Semantic Entropy | 按含义聚类采样回答，并在语义簇概率上计算熵。 | [PDF](UQ-methods-Introduction/methods/Semantic-Entropy.pdf) | [Detecting hallucinations in large language models using semantic entropy](https://www.nature.com/articles/s41586-024-07421-0) |
+| Semantic Density | 从语义空间中的概率密度角度估计单个回答的置信度。 | [PDF](UQ-methods-Introduction/methods/Semantic-Density.pdf) | [Semantic Density: Uncertainty Quantification for Large Language Models through Confidence Measurement in Semantic Space](https://arxiv.org/abs/2405.13845) |
+| SAR | 按相关性调整词元级和句子级不确定性，突出语义重要成分。 | [PDF](UQ-methods-Introduction/methods/SAR.pdf) | [Shifting Attention to Relevance: Towards the Predictive Uncertainty Quantification of Free-Form Large Language Models](https://aclanthology.org/2024.acl-long.276/) |
+| Topo-UQ | 将解释转为推理图，从语义与拓扑差异分析多次解释的一致性。 | [PDF](UQ-methods-Introduction/methods/Topo-UQ.pdf) | [Understanding the Uncertainty of LLM Explanations: A Perspective Based on Reasoning Topology](https://arxiv.org/abs/2502.17026) |
+| CoT Entropy | 对采样推理轨迹进行边缘化，估计逐步验证决策的熵。 | [PDF](UQ-methods-Introduction/methods/CoT-Entropy.pdf) | [Uncertainty-Aware Step-wise Verification with Generative Reward Models](https://arxiv.org/abs/2502.11250) |
+
+### 单次前向方法
+
+| 方法 | 核心思路 | 介绍 | 原论文 |
+| --- | --- | --- | --- |
+| CP-MCQA | 基于选项分数与校准集构建多选问答预测集合，以集合大小反映不确定性。 | [PDF](UQ-methods-Introduction/methods/CP-MCQA.pdf) | [Conformal Prediction with Large Language Models for Multi-Choice Question Answering](https://arxiv.org/abs/2305.18404) |
+| MARS | 按词元对回答含义的贡献加权概率，替代简单长度归一化。 | [PDF](UQ-methods-Introduction/methods/MARS.pdf) | [MARS: Meaning-Aware Response Scoring for Uncertainty Estimation in Generative LLMs](https://arxiv.org/abs/2402.11756) |
+| CCP | 估计声明条件概率，减少表面措辞和声明选择对事实不确定性评估的干扰。 | [PDF](UQ-methods-Introduction/methods/CCP.pdf) | [Fact-Checking the Output of Large Language Models via Token-Level Uncertainty Quantification](https://aclanthology.org/2024.findings-acl.558/) |
+| SEPs | 训练隐藏状态上的轻量探针，在推理时用单次生成近似语义熵。 | [PDF](UQ-methods-Introduction/methods/SEPs.pdf) | [Semantic Entropy Probes: Robust and Cheap Hallucination Detection in LLMs](https://arxiv.org/abs/2406.15927) |
+| BLL | 以层间激活变化构建贝叶斯线性模型，聚合后验特征估计可靠性。 | [PDF](UQ-methods-Introduction/methods/BLL.pdf) | [Can Linear Probes Measure LLM Uncertainty?](https://arxiv.org/abs/2510.04108) |
+| LACIE | 利用说话者与听者交互生成偏好数据，微调模型的置信表达。 | [PDF](UQ-methods-Introduction/methods/LACIE.pdf) | [LACIE: Listener-Aware Finetuning for Confidence Calibration in Large Language Models](https://arxiv.org/abs/2405.21028) |
+| SaySelf | 通过监督微调与强化学习，使模型输出答案、自我反思理由和置信度。 | [PDF](UQ-methods-Introduction/methods/SaySelf.pdf) | [SaySelf: Teaching LLMs to Express Confidence with Self-Reflective Rationales](https://arxiv.org/abs/2405.20974) |
+| Linguistic Calibration | 训练长文本中的置信表达，使读者据此形成更校准的概率判断。 | [PDF](UQ-methods-Introduction/methods/Linguistic-Calibration.pdf) | [Linguistic Calibration of Long-Form Generations](https://arxiv.org/abs/2404.00474) |
+| CoT-UQ | 提取推理步骤关键词及其重要性，将推理信号融入回答级 UQ。 | [PDF](UQ-methods-Introduction/methods/CoT-UQ.pdf) | [CoT-UQ: Improving Response-wise Uncertainty Quantification in LLMs with Chain-of-Thought](https://arxiv.org/abs/2502.17214) |
+| Verbalized Probability | 通过训练让模型用自然语言或数值直接表达回答置信度。 | [PDF](UQ-methods-Introduction/methods/Verbalized-Probability.pdf) | [Teaching Models to Express Their Uncertainty in Words](https://arxiv.org/abs/2205.14334) |
+| P(IK) | 在生成答案之前预测模型知道正确答案的概率。 | [PDF](UQ-methods-Introduction/methods/P-IK.pdf) | [Language Models (Mostly) Know What They Know](https://arxiv.org/abs/2207.05221) |
+| P(True) | 在给定问题与回答后，通过真伪自评估计回答正确概率。 | [PDF](UQ-methods-Introduction/methods/P-True.pdf) | [Language Models (Mostly) Know What They Know](https://arxiv.org/abs/2207.05221) |
+
 ## 引用
 
 若本项目对您的研究有帮助，请引用对应论文：
