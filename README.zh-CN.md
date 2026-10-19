@@ -1,6 +1,6 @@
 # The Origins of Stochasticity — LLM Uncertainty Quantification
 
-[English](README.md) | **简体中文**
+[English](https://github.com/Ezekiel-Ou/LLM_Uncertainty_Survey#english) | **简体中文**
 
 本项目是论文 **[The Origins of Stochasticity: Comprehensive Investigations on Uncertainty Quantification for Large Language Models](https://arxiv.org/abs/2606.22792)** 对应的代码仓库，提供大语言模型不确定性量化（Uncertainty Quantification，UQ）的回答生成、方法运行、指标评估与规模效应分析工具。
 
