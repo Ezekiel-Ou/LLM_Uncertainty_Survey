@@ -359,15 +359,13 @@ The tables below cover all 33 methods, with a short description, local introduct
 If this repository is useful for your research, please cite the accompanying paper:
 
 ```bibtex
-@misc{ou2026originsstochasticity,
-  title         = {The Origins of Stochasticity: Comprehensive Investigations on Uncertainty Quantification for Large Language Models},
-  author        = {Xiang-Jun Ou and Shuang Liang and Xin-Yu Hu and Rong-Hao Huang and Jing Wang and Shao-Qun Zhang},
-  year          = {2026},
-  eprint        = {2606.22792},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.AI},
-  doi           = {10.48550/arXiv.2606.22792},
-  url           = {https://arxiv.org/abs/2606.22792}
+@article{ou2026origins,
+  author  = {Xiang-Jun Ou and Shuang Liang and Xin-Yu Hu and
+             Rong-Hao Huang and Jing Wang and Shao-Qun Zhang},
+  title   = {The Origins of Stochasticity: Comprehensive Investigations on
+             Uncertainty Quantification for Large Language Models},
+  journal = {arXiv preprint arXiv:2606.22792},
+  year    = {2026}
 }
 ```
 

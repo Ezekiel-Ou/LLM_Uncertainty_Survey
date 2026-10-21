@@ -359,15 +359,13 @@ python -m scaling_law.summarize_scaling_law \
 若本项目对您的研究有帮助，请引用对应论文：
 
 ```bibtex
-@misc{ou2026originsstochasticity,
-  title         = {The Origins of Stochasticity: Comprehensive Investigations on Uncertainty Quantification for Large Language Models},
-  author        = {Xiang-Jun Ou and Shuang Liang and Xin-Yu Hu and Rong-Hao Huang and Jing Wang and Shao-Qun Zhang},
-  year          = {2026},
-  eprint        = {2606.22792},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.AI},
-  doi           = {10.48550/arXiv.2606.22792},
-  url           = {https://arxiv.org/abs/2606.22792}
+@article{ou2026origins,
+  author  = {Xiang-Jun Ou and Shuang Liang and Xin-Yu Hu and
+             Rong-Hao Huang and Jing Wang and Shao-Qun Zhang},
+  title   = {The Origins of Stochasticity: Comprehensive Investigations on
+             Uncertainty Quantification for Large Language Models},
+  journal = {arXiv preprint arXiv:2606.22792},
+  year    = {2026}
 }
 ```
 
